@@ -38,7 +38,12 @@ Known differences and limits:
 
 ## Screenshots
 
-Japanese arcade original on the left, `cotton2e` on the right.
+![Cotton 2 English, stage 1](screenshots/gameplay.png)
+
+*Stage 1 in `cotton2e`.*
+
+Translated screens: Japanese arcade original on the left, `cotton2e` on
+the right.
 
 | | |
 |---|---|
