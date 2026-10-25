@@ -36,6 +36,27 @@ Known differences and limits:
   different build and these two changes are not ported.
 - `CHR_INF.MF` and `CHR_VS70.MF` (Saturn only) have no arcade counterpart.
 
+## Screenshots
+
+Japanese arcade original on the left, `cotton2e` on the right.
+
+| | |
+|---|---|
+| Prologue | ![prologue](screenshots/prologue.png) |
+| Profiles: Cotton, Silk | ![profiles](screenshots/profile_cotton_silk.png) |
+| Profiles: Appli, Needle | ![profiles](screenshots/profile_appli_needle.png) |
+| Continue screen, stage 1 | ![continue](screenshots/continue_stage1.png) |
+| Continue screen, boss | ![continue](screenshots/continue_boss.png) |
+| Opening scene | ![story](screenshots/story_opening.png) |
+| Story scene | ![story](screenshots/story_you_there.png) |
+| Story scene | ![story](screenshots/story_here_i_go.png) |
+| Ending | ![ending](screenshots/ending.png) |
+| Staff roll | ![staff roll](screenshots/staff_roll.png) |
+
+The translators' credit in the staff roll, followed by the arcade port:
+
+![staff roll credit](screenshots/staff_roll_port_credit.png)
+
 ## Getting the ROM set
 
 You need `cotton2.zip` (the MAME set) and `stvbios.zip`.
