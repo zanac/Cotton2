@@ -15,17 +15,25 @@ the Saturn files and puts them into the arcade cartridge.
 
 | Part | State |
 |---|---|
-| Attract mode: prologue scroll, character profiles | done, checked in the emulator |
-| Continue screen hints, all 7 stages | done, checked in the emulator (stages 1–2) |
-| Story dialogue VS0–VS6 | built, emulator check in progress |
-| Ending VS7 | built, not checked yet |
+| Attract mode: prologue scroll, character profiles | English, checked in the emulator |
+| Continue screen hints, all 7 stages | English, checked in the emulator (stages 1–2) |
+| Story scenes VS0–VS4 and VS6 | English, checked in the emulator |
+| Ending VS7 and staff roll | English, checked in the emulator |
+| Scene VS5 (before the last boss) | **Japanese** (see below) |
 | ROM set `cotton2e`, patch, driver entry | done |
 
-Known differences from the Saturn translation:
+Known differences and limits:
 
-- The Saturn overlays also call one routine every other frame and change a
-  loop limit in the ending (75 → 80). The arcade code is a different build
-  and these two changes are not ported.
+- **VS5 stays in Japanese.** The arcade cut of that scene differs from the
+  Saturn one (other speaker turns and frame tables), and the merged English
+  scene stops after Cotton's first line. Until that is solved the scene
+  keeps its arcade data, so the game plays to the end.
+- The staff roll keeps the Saturn translators' credit and adds the line
+  "Ported by Zanac" after it; the two helpers' lines are joined in one
+  ("with help from Katrin & Danthrax") to make room.
+- The Saturn overlays also play the text blip sound every other frame and
+  change a loop limit in the ending (75 → 80). The arcade code is a
+  different build and these two changes are not ported.
 - `CHR_INF.MF` and `CHR_VS70.MF` (Saturn only) have no arcade counterpart.
 
 ## Getting the ROM set
@@ -41,13 +49,13 @@ This writes `cotton2e.zip`. Python 3, standard library only.
 | File | CRC32 | SHA1 |
 |---|---|---|
 | c2e20122.7 | 0b9d225c | 074777cf0d681e334ec7d3819a4e9cd86e258ad1 |
-| c2e20117.2 | b6e0e634 | cad580d39a7bf666c55794d28788cb0f6503155d |
-| c2e20118.3 | 2161fac9 | 4a5430cad481786595ffab46505b67450dbea43d |
-| c2e20119.4 | 0f05df2e | 6d22a2f5d238cd551913a74e7421c3b5bbf315ac |
-| c2e20120.5 | 988121dd | 176badb58896cecb5f5c9f31ed9e6fa096aef03f |
-| c2e20121.6 | 2a1f48d5 | 23c5ad9cea85d2dac77d60650a3acfbd0b2aa155 |
-| c2e20116.1 | 65207eb8 | e0cbde50ceaf3c8c7162d2e708b0241887166d9a |
-| c2e20123.8 | 33b0e7c4 | 6d99412366ff021c3177e6087eb000a77cf94a38 |
+| c2e20117.2 | 44d2aafd | 8486498c968e3c8d60b5c9f2e7b64ed4d986be12 |
+| c2e20118.3 | 645ab039 | 648b883451e08efc0ce3383e3af95472ad05fd77 |
+| c2e20119.4 | 737fa10d | 378fe2b214d0999e0d4f97fb06f4c6f1df1e3d39 |
+| c2e20120.5 | 21a702be | a0f912fed04e3fd847f979247787bf0d6f692567 |
+| c2e20121.6 | fab65ce6 | 5cce93a36068636246662f5a9765e5c7d3b67357 |
+| c2e20116.1 | bbfaafee | 630490955584faf96d0267d421177b94cc8c1a35 |
+| c2e20123.8 | 44d3aef6 | e2e8faa399df2b182c9cbd03f268b2e21a9840f2 |
 
 ## Rebuilding everything
 
@@ -87,6 +95,7 @@ The result is reproducible byte for byte.
 | `tools/check_converter.py` | Saturn `CHR_VS*.MF` → arcade layout, compared with the cartridge |
 | `tools/analyze.py` | what the English patch changes in each Saturn file |
 | `tools/translate.py` | the English cartridge: dialogue, hints, attract screens |
+| `tools/credit.py` | the extra staff roll line |
 | `tools/vsmerge.py` | 3-way merge of the dialogue containers and overlay tables |
 | `tools/vsport.py` | locate the Saturn overlay changes in the arcade overlays |
 | `tools/romset.py` | ROM names and patch format |
@@ -156,19 +165,25 @@ the original data this gives exactly the arcade `CHR_VS0/2/3/4.MF`.
 ### Dialogue (VS scenes)
 
 Three versions of each `CHR_VS*.MF` are compared, all in the arcade
-layout: Saturn original (O), Saturn English (E) and arcade (A). The
-arcade overlays address frames by number, and some arcade containers
-have extra frames, so:
+layout: Saturn original (O), Saturn English (E) and arcade (A).
 
-- the new frame list is the English one, with the arcade-only frames
-  appended
-- the frame tables at the end of each overlay and the animations are
-  renumbered; animations that the arcade has as in the Saturn original
-  are taken from the English file, the arcade-only ones are renumbered
-- new sprites that do not fit in the old container go to the free space
-  at the end of the cartridge (frames may point past the end of `SPT`)
-- the two text constants of the English overlays are set in the arcade
-  ones: frames per character (5 → 3) and character advance (13 → 9 or 8)
+- The dialogue text is a run of glyph frames that starts at a fixed frame
+  number, so the English text replaces the Japanese one at the same place
+  and the frames after it move by the growth of the text.
+- The frames before the text keep their arcade numbers (the overlay code
+  addresses some of them directly).
+- Arcade-only frames go at the end. The frame tables at the end of each
+  overlay and the animations are renumbered: an animation that the arcade
+  has as in the Saturn original is taken from the English file, an
+  arcade-only one is renumbered. Animations added by the English patch
+  are appended (`SIF` word 2 counts them).
+- A run of words in an overlay is treated as a frame table only when it
+  holds several English changes that follow the renumbering; short
+  parameter lists (text window sizes) are patched byte by byte.
+- The two text constants of the English overlays are set in the arcade
+  ones: frames per character (5 → 3) and character advance (13 → 9 or 8).
+- Sprites that do not fit in the old container go to the free space at
+  the end of the cartridge; their frames point past the end of `SPT`.
 
 ### Continue screen and attract screens
 

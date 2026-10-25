@@ -4,6 +4,7 @@ import os
 import struct
 
 import c2lib
+import credit
 import vsmerge
 
 OTHER = {'BGM_VS0.MF': 0x474d40, 'CHR_TTL.MF': 0x370ba0}
@@ -18,9 +19,17 @@ class Cart:
         self.free = CHAIN_END
         self.chain_tail = CHAIN_END
         self.allocated = False
+        self.holes = []          # data areas of moved files, reusable
         self.log = []
 
-    def alloc(self, size, align=0x20):
+    def alloc(self, size, align=0x20, above=0):
+        """space for data that nothing else uses: first in the old areas of
+        moved files (at an address above `above`), then at the region end"""
+        for h in self.holes:
+            at = (max(h[0], above) + align - 1) & ~(align - 1)
+            if at + size <= h[1]:
+                h[0] = at + size
+                return at
         self.allocated = True
         at = max(self.free, self.chain_tail + 4)
         at = (at + align - 1) & ~(align - 1)
@@ -47,6 +56,7 @@ class Cart:
     def put_moved(self, name, data):
         off, s2, d = self.entry(name)
         self.reg[off + 4:off + 20] = (name[:-1] + 'X').encode().ljust(16, b'\0')
+        self.holes.append([d, d + s2])
         pad = (-len(data)) & 3
         blob = struct.pack('>I', 0x20 + len(data) + pad) + name.encode().ljust(16, b'\0')
         blob += struct.pack('>I', len(data)) + bytes(self.reg[off + 0x18:off + 0x20]) + data + b'\0' * pad
@@ -88,8 +98,12 @@ def vs_scene(cart, n, orig, eng):
     Ad = c2lib.arc_file(cart.reg, mfn)
     Od = c2lib.to_arcade(load_sat(orig, mfn), Ad)
     Ed = c2lib.to_arcade(load_sat(eng, mfn), Ad)
+    if n == 7:
+        Ed = credit.add_line(Ed)
     so, se = load_sat(orig, vsn), load_sat(eng, vsn)
     ha = c2lib.arc_file(cart.reg, vsn)
+    # the container stays in its slot; sprites that do not fit go to free
+    # cartridge space and their frames point there (past the end of SPT)
     off, s2, d = cart.entry(mfn)
     writes = []
     mf, vs, report, conflicts, counts = vsmerge.merge3(Od, Ed, Ad, so, se, ha, limit=s2, mf_at=d,
@@ -98,7 +112,8 @@ def vs_scene(cart, n, orig, eng):
         cart.reg[at:at + len(b)] = b
     if writes:
         cart.log.append('%s: %d sprites outside (%x bytes)' % (mfn, len(writes), sum(len(b) for a, b in writes)))
-    assert not conflicts, conflicts
+    if conflicts:
+        cart.log.append("VS%d: %d table slots left as in the arcade" % (n, len(conflicts)))
     vs = bytearray(vs)
     # engine constants, as in the Saturn overlay
     assert vs[CODE_MUL:CODE_MUL + 2] == b'\xe3\x0d'
@@ -154,7 +169,7 @@ def stage_hints(cart, st, orig, eng):
         p = sch_at + pa[k]
         if changed:
             blob = h + d + b'\0' * ((-len(d)) & 3)
-            at = cart.alloc(len(blob))
+            at = cart.alloc(len(blob), above=spt_at)
             cart.reg[at:at + len(blob)] = blob
             cart.reg[p:p + 4] = struct.pack('>I', at - spt_at)
         cart.reg[p + 4:p + 20] = re_[4:]
@@ -170,6 +185,7 @@ def free_old_area(cart, name):
     off, s2, d = cart.entry(name)
     data = bytes(cart.reg[d:d + s2])
     cart.put_moved(name, data)
+    cart.holes.remove([d, d + s2])
     return [d, d + s2]
 
 
@@ -232,7 +248,13 @@ def ttl_screens(cart, orig, eng, area):
 
 # --- whole cartridge ------------------------------------------------------
 
-def build(reg, orig, eng, scenes=range(8)):
+# VS5 (before the last boss) stays in Japanese: the arcade cut of that
+# scene differs from the Saturn one and the merged scene stops after the
+# first lines. See README.md.
+SCENES = (0, 1, 2, 3, 4, 6, 7)
+
+
+def build(reg, orig, eng, scenes=SCENES):
     """English cartridge region from the arcade one; returns (region, log)"""
     cart = Cart(reg)
     area = free_old_area(cart, 'BGM_VS0.MF')

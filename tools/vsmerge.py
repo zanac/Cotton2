@@ -159,9 +159,11 @@ def build(A, frames, frame_sprite, keep_unused=True, limit=None, mf_at=None,
                    if not x[0].endswith(('.SCH', '.SPT'))) + 0x40 + extra + 4
     inside = set(k for k, h, d, nw in entries)
     if limit is not None and total(inside) > limit:
-        for k, h, d, nw in sorted(entries, key=lambda e: -len(e[2])):
-            if nw and total(inside) > limit:
-                inside.discard(k)
+        # new sprites first, then arcade ones, the largest first
+        for k, h, d, nw in sorted(entries, key=lambda e: (not e[3], -len(e[2]))):
+            if total(inside) <= limit:
+                break
+            inside.discard(k)
         assert total(inside) <= limit, 'does not fit even with sprites outside'
     spt = bytearray()
     where = {}
@@ -206,7 +208,7 @@ def build(A, frames, frame_sprite, keep_unused=True, limit=None, mf_at=None,
             b = blob(h, d)
             at = alloc(len(b))
             writes.append((at, b))
-            offs[k] = at - spt_base
+            offs[k] = (at - spt_base) & 0xffffffff
         mf = make(offs)
     return mf
 
@@ -419,14 +421,28 @@ def merge3(Od, Ed, Ad, vs_o, vs_e, vs_a, **build_args):
     amap = frame_map(O, A)
     inv = {j: i for i, j in amap.items()}
 
+    ts_, art_, dd_ = regions(O, E)
+
     def moved_ok(v, w):
+        """a renumbering the English patch made: the same sprite moved"""
         return v < No and w < Ne and E.key(w)[1] == O.key(v)[1]
     # Saturn frame tables: long runs of frame numbers with key-consistent changes
-    truns = []
-    for t, v, w in frame_table_changes(vs_o, vs_e, No):
-        sa, sb = table_runs(vs_o, t, 0x12000, No)
-        if moved_ok(v, w) and (sa, sb) not in truns:
-            truns.append((sa, sb))
+    def fits_renumbering(v, w):
+        """the change follows the English layout: an art frame moved by the
+        text growth, or a frame inside the rewritten text"""
+        if v >= art_:
+            return w == v + dd_
+        return v >= ts_ and ts_ <= w < art_ + dd_
+    changes = frame_table_changes(vs_o, vs_e, No)
+    runs = {}
+    for t, v, w in changes:
+        runs.setdefault(table_runs(vs_o, t, 0x12000, No), []).append((v, w))
+    # a run is a frame table only if it has several English changes and
+    # nearly all of them fit the renumbering (a window size or a short
+    # parameter list does not)
+    truns = [r for r, ch in runs.items()
+             if len(ch) >= 4 and any(moved_ok(v, w) for v, w in ch)
+             and sum(fits_renumbering(v, w) or moved_ok(v, w) for v, w in ch) >= 0.5 * len(ch)]
     # English renumbering T: SAN (all used) and the changed frame-table entries
     T = {}
     conflicts = []
@@ -464,9 +480,33 @@ def merge3(Od, Ed, Ad, vs_o, vs_e, vs_a, **build_args):
             continue
         k = T.get(i, i)
         R[j] = k
-        if A.key(j)[1] != O.key(i)[1] and k < Ne and E.key(k)[1] == O.key(i)[1]:
+        # a frame the English patch kept (same sprite) is taken from the
+        # arcade, record included: the arcade records differ in places
+        if (i < ts_ or i >= art_) and k < Ne and E.key(k)[1] == O.key(i)[1] and A.frames[j] != frames[k]:
             frames[k] = A.frames[j]
             fs[k] = A.frame_sprite(j)
+    # final layout: the arcade frames before the text keep their arcade
+    # numbers (the overlay code addresses some of them directly), then the
+    # English text and art, then the other arcade-only frames
+    tsA = amap.get(ts_, ts_)
+    P = {}
+    final = [A.frames[j] for j in range(tsA)]
+    ffs = {j: A.frame_sprite(j) for j in range(tsA)}
+    for k in range(ts_):
+        P[k] = amap.get(k, k)
+    extra_prefix = {R[j] for j in range(tsA) if inv.get(j) is None}
+    for k in range(ts_, len(frames)):
+        if k in extra_prefix:
+            continue
+        P[k] = len(final)
+        final.append(frames[k])
+        ffs[P[k]] = fs.get(k)
+    for j in range(Na):
+        R[j] = j if j < tsA else P[R[j]]
+    frames, fs = final, ffs
+
+    def pe(f):
+        return P.get(f, f)
     # animations: the English one where the arcade has the original one,
     # else the arcade one renumbered; animations added by the patch at the end
     def same(i):
@@ -482,7 +522,8 @@ def merge3(Od, Ed, Ad, vs_o, vs_e, vs_a, **build_args):
     kept = 0
     for i in range(len(ao)):
         if same(i):
-            new_anims.append(b''.join(ae[i]))
+            new_anims.append(b''.join(struct.pack('>H', pe(struct.unpack('>H', r[:2])[0])) + r[2:]
+                                      for r in ae[i]))
         else:
             kept += 1
             new_anims.append(b''.join(struct.pack('>H', R.get(struct.unpack('>H', r[:2])[0],
@@ -498,7 +539,8 @@ def merge3(Od, Ed, Ad, vs_o, vs_e, vs_a, **build_args):
         san[o:o + len(b)] = b
     san = bytes(san)
     if len(ae) > len(ao):
-        san = san_append(san, [b''.join(a) for a in ae[len(ao):]])
+        san = san_append(san, [b''.join(struct.pack('>H', pe(struct.unpack('>H', r[:2])[0])) + r[2:]
+                                        for r in a) for a in ae[len(ao):]])
     if len(ae) > len(ao):
         sif = bytearray(A.sub('.SIF'))
         sif[4:6] = struct.pack('>H', struct.unpack('>H', sif[4:6])[0] + len(ae) - len(ao))
@@ -602,3 +644,4 @@ def san_build(anims):
         head += struct.pack('>I', first + len(body))
         body += a
     return head + b'\xff\xff\xff\xff' + body
+
