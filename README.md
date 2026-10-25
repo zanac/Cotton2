@@ -65,18 +65,39 @@ You need `cotton2.zip` (the MAME set) and `stvbios.zip`.
 python3 patch/make_cotton2e.py ROMDIR [OUTDIR]
 ```
 
-This writes `cotton2e.zip`. Python 3, standard library only.
+This writes `cotton2e.zip`. Python 3, standard library only. The script
+checks every file it writes against the CRC32 in the patch.
 
-| File | CRC32 | SHA1 |
-|---|---|---|
-| c2e20122.7 | 0b9d225c | 074777cf0d681e334ec7d3819a4e9cd86e258ad1 |
-| c2e20117.2 | 44d2aafd | 8486498c968e3c8d60b5c9f2e7b64ed4d986be12 |
-| c2e20118.3 | 645ab039 | 648b883451e08efc0ce3383e3af95472ad05fd77 |
-| c2e20119.4 | 737fa10d | 378fe2b214d0999e0d4f97fb06f4c6f1df1e3d39 |
-| c2e20120.5 | 21a702be | a0f912fed04e3fd847f979247787bf0d6f692567 |
-| c2e20121.6 | fab65ce6 | 5cce93a36068636246662f5a9765e5c7d3b67357 |
-| c2e20116.1 | bbfaafee | 630490955584faf96d0267d421177b94cc8c1a35 |
-| c2e20123.8 | 44d3aef6 | e2e8faa399df2b182c9cbd03f268b2e21a9840f2 |
+Input, from `cotton2.zip` (found by CRC, the names inside the zip do not
+matter):
+
+| File | Size | CRC32 | SHA1 |
+|---|---|---|---|
+| mpr20122.7 | 2097152 | d616f78a | 8039dcdfdafb8327a19a1da46a67c0b3f7eee53a |
+| mpr20117.2 | 4194304 | 893656ea | 11e3160083ba018fbd588f07061a4e55c1efbebb |
+| mpr20118.3 | 4194304 | 1b6a1d4c | 6b234d6b2d24df7f6d400a56698c0af2f78ce0e7 |
+| mpr20119.4 | 4194304 | 5a76e72b | 0a058627ddf78a0bcdaba328a58712419f24e33b |
+| mpr20120.5 | 4194304 | 7113dd7b | f86add67c4e1349a9b9ebcd0145a30b1667df811 |
+| mpr20121.6 | 4194304 | 8c8fd521 | c715681330b5ed37a8506ac58ee2143baa721206 |
+| mpr20116.1 | 4194304 | d30b0175 | 2da5c3c02d68b8324948a8cdc93946d97fccdd8f |
+| mpr20123.8 | 4194304 | 35f1b89f | 1d6007c380f817def734fc3030d4fe56df4a15be |
+
+Output, the files of `cotton2e.zip` after the patch:
+
+| File | Size | CRC32 | SHA1 | Replaces |
+|---|---|---|---|---|
+| c2e20122.7 | 2097152 | 0b9d225c | 074777cf0d681e334ec7d3819a4e9cd86e258ad1 | mpr20122.7 |
+| c2e20117.2 | 4194304 | 44d2aafd | 8486498c968e3c8d60b5c9f2e7b64ed4d986be12 | mpr20117.2 |
+| c2e20118.3 | 4194304 | 645ab039 | 648b883451e08efc0ce3383e3af95472ad05fd77 | mpr20118.3 |
+| c2e20119.4 | 4194304 | 737fa10d | 378fe2b214d0999e0d4f97fb06f4c6f1df1e3d39 | mpr20119.4 |
+| c2e20120.5 | 4194304 | 21a702be | a0f912fed04e3fd847f979247787bf0d6f692567 | mpr20120.5 |
+| c2e20121.6 | 4194304 | fab65ce6 | 5cce93a36068636246662f5a9765e5c7d3b67357 | mpr20121.6 |
+| c2e20116.1 | 4194304 | bbfaafee | 630490955584faf96d0267d421177b94cc8c1a35 | mpr20116.1 |
+| c2e20123.8 | 4194304 | 44d3aef6 | e2e8faa399df2b182c9cbd03f268b2e21a9840f2 | mpr20123.8 |
+
+The `c2e*` names are the ones the `cotton2e` driver entry in
+mame2003-plus expects; all eight chips change. The BIOS comes from
+`stvbios.zip`, as for `cotton2`.
 
 ## Rebuilding everything
 

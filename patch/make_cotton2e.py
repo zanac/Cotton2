@@ -8,7 +8,7 @@ ROMDIR must hold cotton2.zip (the MAME set). The result is
 OUTDIR/cotton2e.zip (OUTDIR defaults to ROMDIR). The ST-V BIOS
 (stvbios.zip) is needed to run it, as for cotton2.
 """
-import os, sys, zipfile, zlib, lzma, struct
+import hashlib, os, sys, zipfile, zlib, lzma, struct
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -64,7 +64,8 @@ def main():
             z.writestr(name, data)
     print('written ' + path)
     for name, data in out:
-        print('  %-12s %08x' % (name, zlib.crc32(data)))
+        print('  %-12s %8d  %08x  %s' % (name, len(data), zlib.crc32(data),
+                                        hashlib.sha1(data).hexdigest()))
     return 0
 
 
