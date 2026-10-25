@@ -228,3 +228,19 @@ def ttl_screens(cart, orig, eng, area):
             y0 += hh
         assert y0 == len(after) // 352
     cart.log.append('CHR_TTL screens: %d new cells' % new)
+
+
+# --- whole cartridge ------------------------------------------------------
+
+def build(reg, orig, eng, scenes=range(8)):
+    """English cartridge region from the arcade one; returns (region, log)"""
+    cart = Cart(reg)
+    area = free_old_area(cart, 'BGM_VS0.MF')
+    ttl_screens(cart, orig, eng, area)
+    for n in scenes:
+        vs_scene(cart, n, orig, eng)
+    for st in range(1, 8):
+        stage_hints(cart, st, orig, eng)
+    cart.log.append('chain tail %x, free area from %x, title area left %x'
+                    % (cart.chain_tail, cart.free, area[1] - area[0]))
+    return bytes(cart.reg), cart.log

@@ -430,18 +430,28 @@ def merge3(Od, Ed, Ad, vs_o, vs_e, vs_a, **build_args):
     # English renumbering T: SAN (all used) and the changed frame-table entries
     T = {}
     conflicts = []
-    so, se = O.sub('.SAN'), E.sub('.SAN')
-    for p in san_frames(so):
-        v = struct.unpack('>H', so[p:p + 2])[0]
-        w = struct.unpack('>H', se[p:p + 2])[0]
-        if T.setdefault(v, w) != w:
-            conflicts.append(('san', v, T[v], w))
+    ao, ae = san_anims(O.sub('.SAN')), san_anims(E.sub('.SAN'))
+    aa = san_anims(A.sub('.SAN'))
+    assert len(ae) >= len(ao) and len(aa) == len(ao)
+    san_bad = set()
+    for i in range(len(ao)):
+        assert len(ao[i]) == len(ae[i]), 'English changed animation %d' % i
+        for ro, re_ in zip(ao[i], ae[i]):
+            v = struct.unpack('>H', ro[:2])[0]
+            w = struct.unpack('>H', re_[:2])[0]
+            if T.setdefault(v, w) != w:
+                san_bad.add(v)
+    for v in san_bad:
+        # one original frame split into several English ones (text pages):
+        # no single renumbering, the English animations are used as they are
+        del T[v]
     for sa, sb in truns:
         for t in range(sa, sb, 2):
             v = struct.unpack('>H', vs_o[t:t + 2])[0]
             w = struct.unpack('>H', vs_e[t:t + 2])[0]
             if v != w and moved_ok(v, w) and T.setdefault(v, w) != w:
                 conflicts.append(('tab', v, T[v], w))
+    report = []
     frames = list(E.frames)
     fs = {k: E.frame_sprite(k) for k in range(Ne)}
     R = {}
@@ -457,10 +467,46 @@ def merge3(Od, Ed, Ad, vs_o, vs_e, vs_a, **build_args):
         if A.key(j)[1] != O.key(i)[1] and k < Ne and E.key(k)[1] == O.key(i)[1]:
             frames[k] = A.frames[j]
             fs[k] = A.frame_sprite(j)
-    A.set_sub('.SAN', san_remap(A.sub('.SAN'), lambda f: R.get(f, f)))
+    # animations: the English one where the arcade has the original one,
+    # else the arcade one renumbered; animations added by the patch at the end
+    def same(i):
+        if len(aa[i]) != len(ao[i]):
+            return False
+        for ra, ro in zip(aa[i], ao[i]):
+            fa = struct.unpack('>H', ra[:2])[0]
+            fo = struct.unpack('>H', ro[:2])[0]
+            if ra[2:] != ro[2:] or fa >= Na or fo >= No or A.key(fa) != O.key(fo):
+                return False
+        return True
+    new_anims = []
+    kept = 0
+    for i in range(len(ao)):
+        if same(i):
+            new_anims.append(b''.join(ae[i]))
+        else:
+            kept += 1
+            new_anims.append(b''.join(struct.pack('>H', R.get(struct.unpack('>H', r[:2])[0],
+                                                              struct.unpack('>H', r[:2])[0])) + r[2:]
+                                      for r in aa[i]))
+            if any(struct.unpack('>H', r[:2])[0] in [j for j in range(Na) if inv.get(j) in san_bad] for r in aa[i]):
+                conflicts.append(('arcade anim uses a split frame', i))
+    # written in place over the arcade table (keeps any shared records)
+    san = bytearray(A.sub('.SAN'))
+    first = struct.unpack('>I', san[:4])[0]
+    aoffs = [struct.unpack('>I', san[t:t + 4])[0] for t in range(0, first - 4, 4)]
+    for o, b in zip(aoffs, new_anims):
+        san[o:o + len(b)] = b
+    san = bytes(san)
+    if len(ae) > len(ao):
+        san = san_append(san, [b''.join(a) for a in ae[len(ao):]])
+    if len(ae) > len(ao):
+        sif = bytearray(A.sub('.SIF'))
+        sif[4:6] = struct.pack('>H', struct.unpack('>H', sif[4:6])[0] + len(ae) - len(ao))
+        A.set_sub('.SIF', bytes(sif))
+    A.set_sub('.SAN', san)
+    report.append(('arcade animations kept', kept))
     mf = build(A, frames, fs, keep_unused=False, **build_args)
     vs = bytearray(vs_a)
-    report = []
     inrun = lambda t: any(sa <= t < sb for sa, sb in truns)
     for x, y, d, sc in vsport.locate(vs_o, vs_e, vs_a):
         if x < 0x12000:
@@ -515,3 +561,44 @@ def merge3(Od, Ed, Ad, vs_o, vs_e, vs_a, **build_args):
             vs[p:p + 2] = struct.pack('>H', R.get(a, a))
         report.append(('table', hex(sa), hex(sb), hex(aa), hex(ab), round(eq * 2 / (sb - sa), 3)))
     return mf, bytes(vs), report, conflicts, (No, Ne, Na, len(frames))
+
+
+def san_anims(san):
+    """records (8 bytes each) of every animation of a SAN table"""
+    first = struct.unpack('>I', san[:4])[0]
+    offs = [struct.unpack('>I', san[i:i + 4])[0] for i in range(0, first, 4)]
+    assert offs[-1] == 0xffffffff
+    offs = offs[:-1]
+    bounds = sorted(set(offs)) + [len(san)]
+    out = []
+    for o in offs:
+        end = bounds[bounds.index(o) + 1]
+        out.append([san[r:r + 8] for r in range(o, end - 7, 8)])
+    return out
+
+
+def san_append(san, extra):
+    """add animations (record bytes) at the end of a SAN table"""
+    first = struct.unpack('>I', san[:4])[0]
+    offs = [struct.unpack('>I', san[i:i + 4])[0] for i in range(0, first - 4, 4)]
+    grow = 4 * len(extra)
+    body = san[first:]
+    new_offs = [o + grow for o in offs]
+    at = first + grow + len(body)
+    tail = b''
+    for x in extra:
+        new_offs.append(at + len(tail))
+        tail += x
+    head = b''.join(struct.pack('>I', o) for o in new_offs) + b'\xff\xff\xff\xff'
+    return head + body + tail
+
+
+def san_build(anims):
+    """SAN table from the record bytes of each animation"""
+    first = 4 * (len(anims) + 1)
+    head = b''
+    body = b''
+    for a in anims:
+        head += struct.pack('>I', first + len(body))
+        body += a
+    return head + b'\xff\xff\xff\xff' + body

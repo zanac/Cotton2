@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cotton 2 English (ST-V) - build pipeline. Python 3 standard library only.
+"""Cotton 2 English (ST-V) - full build. Python 3 standard library only.
 
 usage: build.py ROMDIR DISC PATCH [OUTDIR]
 
@@ -8,19 +8,21 @@ DISC    Japanese Saturn disc (.cue, Track 1 .bin or .iso)
 PATCH   ss_cotton_2_eng_v0.9.zip (or the .SSP inside it)
 OUTDIR  work and output folder (default: ./out)
 
-Work in progress. What runs today:
+Steps:
   1. rebuild the English Saturn files (OUTDIR/saturn/orig, OUTDIR/saturn/eng)
   2. verify the Saturn -> arcade graphics converter on the original data
-  3. convert the English CHR_VS*.MF dialogue graphics to the arcade layout
-     (OUTDIR/arcade/)
-The last step, writing the new ROM set, is not implemented yet: see
-README.md, "Status".
+  3. build the English cartridge (dialogue, continue screen hints,
+     attract screens)
+  4. write OUTDIR/cotton2e.zip and the patch patch/cotton2e.dat
+
+Users who only want the ROM set do not need this: patch/make_cotton2e.py
+rebuilds it from cotton2.zip alone.
 """
-import os, subprocess, sys
+import os, subprocess, sys, zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, 'tools'))
-import c2lib
+import c2lib, romset, translate
 
 
 def run(script, *args):
@@ -40,19 +42,17 @@ def main():
     run('make_saturn_english.py', disc, patch, sat)
     print('[2] converter check')
     run('check_converter.py', romdir, os.path.join(sat, 'orig'))
-    print('[3] English dialogue graphics in arcade layout')
-    reg, _ = c2lib.load_cart(romdir)
-    arc = os.path.join(out, 'arcade')
-    os.makedirs(arc, exist_ok=True)
-    for n in sorted(c2lib.ARC_MF):
-        if not n.startswith('CHR_VS'):
-            continue
-        eng = open(os.path.join(sat, 'eng', n), 'rb').read()
-        old = c2lib.arc_file(reg, n)
-        new = c2lib.to_arcade(eng, old)
-        open(os.path.join(arc, n), 'wb').write(new)
-        print('  %-12s arcade %6x  english %6x' % (n, len(old), len(new)))
-    print('[4] ROM set: not implemented yet (see README.md, Status)')
+    print('[3] English cartridge')
+    reg, orig_chips = c2lib.load_cart(romdir)
+    eng, log = translate.build(bytes(reg), os.path.join(sat, 'orig'), os.path.join(sat, 'eng'))
+    for line in log:
+        print('  ' + line)
+    print('[4] ROM set and patch')
+    for name, crc, data in romset.write_zip(eng, os.path.join(out, romset.SET + '.zip')):
+        print('  %-12s %08x' % (name, crc))
+    dat = os.path.join(HERE, 'patch', romset.SET + '.dat')
+    open(dat, 'wb').write(romset.make_patch(orig_chips, eng))
+    print('  written %s and %s' % (os.path.join(out, romset.SET + '.zip'), dat))
     return 0
 
 
