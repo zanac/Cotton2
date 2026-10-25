@@ -178,7 +178,7 @@ def unlz(c):
     n = struct.unpack('>I', c[4:8])[0]
     i = 8
     o = bytearray()
-    while len(o) < n:
+    while len(o) < n and i < len(c):
         b = c[i]
         i += 1
         if b < 0x10:
@@ -245,3 +245,18 @@ def to_arcade(sat_mf, arc_mf=None):
         if s[0] in stamps:
             s[2] = stamps[s[0]]
     return mf_build(subs, arc_mf[-4:] if arc_mf is not None else b'\xff' * 4)
+
+
+def cart_files(reg):
+    """[(header offset, name, size2)] of every file entry found in the cart"""
+    import re
+    out = []
+    for m in re.finditer(rb'[A-Z0-9_]{1,8}\.[A-Z0-9_]{1,3}\0', reg):
+        o = m.start() - 4
+        if o < 0 or o % 4:
+            continue
+        sz = struct.unpack('>I', reg[o:o + 4])[0]
+        s2 = struct.unpack('>I', reg[o + 0x14:o + 0x18])[0]
+        if s2 <= sz <= s2 + 0x40 and sz < 0x400000:
+            out.append((o, m.group()[:-1].decode(), s2))
+    return out
