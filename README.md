@@ -69,13 +69,13 @@ python3 build.py ROMDIR DISC PATCH [OUTDIR]
 - `ROMDIR`: folder with `cotton2.zip`
 - `DISC`: the Japanese Saturn disc of *Magical Night Dreams: Cotton 2*
   (`.cue`, Track 1 `.bin` or an `.iso` of the data track)
-- `PATCH`: `ss_cotton_2_eng_v0.9.zip`, the Saturn English patch, or the
-  `.SSP` inside it (not included here)
+- `PATCH`: `ss_cotton_2_eng_v0.9.zip`, the Saturn English patch (in
+  `saturn-patch/`), or the `.SSP` inside it
 
 Example:
 
 ```
-python3 build.py roms "Magical Night Dreams Cotton 2 (Japan).cue" ss_cotton_2_eng_v0.9.zip out
+python3 build.py roms "Magical Night Dreams Cotton 2 (Japan).cue" saturn-patch/ss_cotton_2_eng_v0.9.zip out
 ```
 
 Steps:
@@ -195,5 +195,19 @@ chain.
 
 ## Credits
 
-Translation hack by Vanni Brutto. The game is © Success 1997. Building
-the ROM set needs your own copy of the game.
+The English text and the redrawn graphics come from the English
+translation patch of the Saturn version, v0.9 (`ss_cotton_2_eng_v0.9.zip`,
+first published on segaxtreme.net), included in `saturn-patch/` with its
+readme and licence:
+
+- Translation & hacking: nanashi
+- Proofreading / editing: Katrin, Danthrax
+- Patcher: KnightOfDragon
+
+That patch is distributed under the Creative Commons
+Attribution-NonCommercial-ShareAlike 4.0 licence (`saturn-patch/license.txt`).
+The ROM patch `patch/cotton2e.dat` is derived from it and is shared under
+the same terms: no commercial use.
+
+Arcade port by Vanni Brutto (Zanac). The game is © Success 1997.
+Building the ROM set needs your own copy of the game.

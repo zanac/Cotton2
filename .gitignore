@@ -5,3 +5,5 @@ __pycache__/
 *.cue
 *.iso
 *.SSP
+!saturn-patch/*.zip
+!saturn-patch/*.SSP
