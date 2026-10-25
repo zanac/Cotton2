@@ -17,17 +17,12 @@ the Saturn files and puts them into the arcade cartridge.
 |---|---|
 | Attract mode: prologue scroll, character profiles | English, checked in the emulator |
 | Continue screen hints, all 7 stages | English, checked in the emulator (stages 1–2) |
-| Story scenes VS0–VS4 and VS6 | English, checked in the emulator |
+| Story scenes VS0–VS6 | English, checked in the emulator |
 | Ending VS7 and staff roll | English, checked in the emulator |
-| Scene VS5 (before the last boss) | **Japanese** (see below) |
 | ROM set `cotton2e`, patch, driver entry | done |
 
 Known differences and limits:
 
-- **VS5 stays in Japanese.** The arcade cut of that scene differs from the
-  Saturn one (other speaker turns and frame tables), and the merged English
-  scene stops after Cotton's first line. Until that is solved the scene
-  keeps its arcade data, so the game plays to the end.
 - The staff roll keeps the Saturn translators' credit and adds the line
   "Ported by Zanac" after it; the two helpers' lines are joined in one
   ("with help from Katrin & Danthrax") to make room.
@@ -55,6 +50,7 @@ the right.
 | Opening scene | ![story](screenshots/story_opening.png) |
 | Story scene | ![story](screenshots/story_you_there.png) |
 | Story scene | ![story](screenshots/story_here_i_go.png) |
+| Scene before the last boss | ![story](screenshots/story_last_day.png) |
 | Ending | ![ending](screenshots/ending.png) |
 | Staff roll | ![staff roll](screenshots/staff_roll.png) |
 
@@ -92,13 +88,13 @@ Output, the files of `cotton2e.zip` after the patch:
 | File | Size | CRC32 | SHA1 | Replaces |
 |---|---|---|---|---|
 | c2e20122.7 | 2097152 | 0b9d225c | 074777cf0d681e334ec7d3819a4e9cd86e258ad1 | mpr20122.7 |
-| c2e20117.2 | 4194304 | 44d2aafd | 8486498c968e3c8d60b5c9f2e7b64ed4d986be12 | mpr20117.2 |
+| c2e20117.2 | 4194304 | b6e0e634 | cad580d39a7bf666c55794d28788cb0f6503155d | mpr20117.2 |
 | c2e20118.3 | 4194304 | 645ab039 | 648b883451e08efc0ce3383e3af95472ad05fd77 | mpr20118.3 |
-| c2e20119.4 | 4194304 | 737fa10d | 378fe2b214d0999e0d4f97fb06f4c6f1df1e3d39 | mpr20119.4 |
-| c2e20120.5 | 4194304 | 21a702be | a0f912fed04e3fd847f979247787bf0d6f692567 | mpr20120.5 |
-| c2e20121.6 | 4194304 | fab65ce6 | 5cce93a36068636246662f5a9765e5c7d3b67357 | mpr20121.6 |
-| c2e20116.1 | 4194304 | bbfaafee | 630490955584faf96d0267d421177b94cc8c1a35 | mpr20116.1 |
-| c2e20123.8 | 4194304 | 44d3aef6 | e2e8faa399df2b182c9cbd03f268b2e21a9840f2 | mpr20123.8 |
+| c2e20119.4 | 4194304 | c7e0165e | 918df5f590c968370f9df7209dd1c5f3e97157c9 | mpr20119.4 |
+| c2e20120.5 | 4194304 | 988121dd | 176badb58896cecb5f5c9f31ed9e6fa096aef03f | mpr20120.5 |
+| c2e20121.6 | 4194304 | b1b67426 | 9bde1f45f758b70c1c7de61b8eb8e555f2170e66 | mpr20121.6 |
+| c2e20116.1 | 4194304 | 65207eb8 | e0cbde50ceaf3c8c7162d2e708b0241887166d9a | mpr20116.1 |
+| c2e20123.8 | 4194304 | c33662ba | fd44fadf41fdde1ba11bd477500bdfe09b066fbf | mpr20123.8 |
 
 The `c2e*` names are the ones the `cotton2e` driver entry in
 mame2003-plus expects; all eight chips change. The BIOS comes from
@@ -231,6 +227,14 @@ layout: Saturn original (O), Saturn English (E) and arcade (A).
   ones: frames per character (5 → 3) and character advance (13 → 9 or 8).
 - Sprites that do not fit in the old container go to the free space at
   the end of the cartridge; their frames point past the end of `SPT`.
+
+Testing note: the scenes were checked with a debug build of the core
+that writes fixed values to work RAM every frame (infinite lives). One
+of those addresses, 0x060e51a0, falls inside the task heap of the VS
+scenes; in VS5 the longer English text puts a heap block header there,
+the link gets overwritten and the scene stops at its third page. That
+was a test artefact, not a fault of the port: without the pokes VS5
+plays to the end. Tests of the VS scenes must not poke work RAM.
 
 ### Continue screen and attract screens
 

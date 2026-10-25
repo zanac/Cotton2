@@ -248,10 +248,7 @@ def ttl_screens(cart, orig, eng, area):
 
 # --- whole cartridge ------------------------------------------------------
 
-# VS5 (before the last boss) stays in Japanese: the arcade cut of that
-# scene differs from the Saturn one and the merged scene stops after the
-# first lines. See README.md.
-SCENES = (0, 1, 2, 3, 4, 6, 7)
+SCENES = (0, 1, 2, 3, 4, 5, 6, 7)
 
 
 def build(reg, orig, eng, scenes=SCENES):
