@@ -11,6 +11,10 @@ profiles are Japanese graphics. The Saturn port of the game has an
 English fan translation. This project takes the translated graphics from
 the Saturn files and puts them into the arcade cartridge.
 
+## Support
+Hey dude! Help me out for a couple of :beers: or a :coffee:!<br/>
+[![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://bmc.link/zanac)
+
 ## Status
 
 | Part | State |
